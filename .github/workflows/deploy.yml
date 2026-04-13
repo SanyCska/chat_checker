@@ -7,7 +7,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
@@ -19,6 +18,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Lowercase image name
+        id: lower
+        run: echo "image_name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -28,7 +31,7 @@ jobs:
       - uses: docker/metadata-action@v5
         id: meta
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.lower.outputs.image_name }}
           tags: |
             type=sha
             type=raw,value=latest
@@ -50,15 +53,26 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          REPO: ${{ github.repository }}
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          NOTIFY_USER_ID: ${{ secrets.NOTIFY_USER_ID }}
+          PHONE_NUMBER: ${{ secrets.PHONE_NUMBER }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          TOPIC_ID: ${{ secrets.TOPIC_ID }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: REPO,API_ID,API_HASH,BOT_TOKEN,NOTIFY_USER_ID,PHONE_NUMBER,CHAT_ID,TOPIC_ID
           script: |
             set -e
             APP_DIR=~/chat-checker
-            REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+            REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${REPO}.git"
             BRANCH="${{ github.ref_name }}"
+            IMAGE_NAME=$(echo "$REPO" | tr '[:upper:]' '[:lower:]')
 
             # Clone or update repo
             if [ ! -d "$APP_DIR/.git" ]; then
@@ -74,16 +88,16 @@ jobs:
             mkdir -p "$APP_DIR/sessions"
 
             # Write .env so Compose (and container) always have the config
-            cat > "$APP_DIR/.env" <<'ENVEOF'
-            GITHUB_REPOSITORY=${{ github.repository }}
-            API_ID=${{ secrets.API_ID }}
-            API_HASH=${{ secrets.API_HASH }}
-            BOT_TOKEN=${{ secrets.BOT_TOKEN }}
-            NOTIFY_USER_ID=${{ secrets.NOTIFY_USER_ID }}
-            PHONE_NUMBER=${{ secrets.PHONE_NUMBER }}
-            CHAT_ID=${{ secrets.CHAT_ID }}
-            TOPIC_ID=${{ secrets.TOPIC_ID }}
-            ENVEOF
+            cat > "$APP_DIR/.env" <<EOF
+GITHUB_REPOSITORY=${IMAGE_NAME}
+API_ID=${API_ID}
+API_HASH=${API_HASH}
+BOT_TOKEN=${BOT_TOKEN}
+NOTIFY_USER_ID=${NOTIFY_USER_ID}
+PHONE_NUMBER=${PHONE_NUMBER}
+CHAT_ID=${CHAT_ID}
+TOPIC_ID=${TOPIC_ID}
+EOF
             chmod 600 "$APP_DIR/.env"
 
             # Pull image and (re)start
