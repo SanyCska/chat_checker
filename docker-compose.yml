@@ -1,18 +1,12 @@
 services:
   bot:
-    image: ghcr.io/${GITHUB_REPOSITORY:-local/chat-checker}:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:?Set GITHUB_REPOSITORY in .env}:latest
     container_name: chat-checker-bot
     restart: unless-stopped
+    env_file: .env
     volumes:
-      - sessions:/app/sessions
+      - ./sessions:/app/sessions
     environment:
-      - API_ID=${API_ID}
-      - API_HASH=${API_HASH}
-      - BOT_TOKEN=${BOT_TOKEN}
-      - NOTIFY_USER_ID=${NOTIFY_USER_ID}
-      - PHONE_NUMBER=${PHONE_NUMBER}
-      - CHAT_ID=${CHAT_ID}
-      - TOPIC_ID=${TOPIC_ID}
       - SESSION_DIR=/app/sessions
 
 volumes:

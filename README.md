@@ -37,7 +37,7 @@ Uses a **userbot** (your own Telegram account via Telethon) to read messages fro
 - Each alert includes a link to the appointment booking site and a **Stop** button.
 - Use `/stop` in your DM with the bot to stop all alerts, or press the inline button on any alert message.
 
-## Docker
+## Docker (local)
 
 First run must be done locally to create the Telethon session (interactive phone + code login):
 
@@ -46,7 +46,7 @@ python bot.py
 # after login succeeds, Ctrl+C
 ```
 
-Then copy the session to the server and run with Docker:
+Then run with Docker locally:
 
 ```bash
 docker build -t chat-checker .
@@ -55,7 +55,14 @@ docker run --env-file .env -v ./sessions:/app/sessions chat-checker
 
 ## Auto Deploy (GitHub Actions)
 
-Every push to `main` builds a Docker image, pushes it to GitHub Container Registry, and deploys to your server via SSH.
+Every push to `main` (or manual trigger via **Actions → Run workflow**) builds a Docker image, pushes it to GHCR, and deploys to your server via SSH.
+
+The workflow automatically:
+1. Builds the image and pushes to `ghcr.io`
+2. SSHs into your server, clones/updates the repo at `~/chat-checker/`
+3. Writes a `.env` file on the server from GitHub secrets
+4. Creates `~/chat-checker/sessions/` directory
+5. Pulls the new image and (re)starts the container
 
 ### GitHub Secrets to configure
 
@@ -74,14 +81,24 @@ Go to repo **Settings → Secrets and variables → Actions** and add:
 | `SERVER_USER`    | SSH username on the server                     |
 | `SERVER_SSH_KEY` | Private SSH key for authentication             |
 
-> **Important**: You need to create the Telethon session locally first and copy `user_session.session` to `~/chat-checker/sessions/` on the server before the first deploy.
-
 ### Server prerequisites
 
-The server needs Docker and Docker Compose installed. The deploy workflow will:
-1. Build the image and push to `ghcr.io`
-2. SCP `docker-compose.yml` to `~/chat-checker/` on your server
-3. SSH in, pull the new image, and restart the container
+- Docker and Docker Compose installed.
+- Copy `user_session.session` (created during local first run) to `~/chat-checker/sessions/` on the server before the first deploy.
+
+### Manual commands on the server
+
+After deploy, you can manage the container directly:
+
+```bash
+cd ~/chat-checker
+docker compose ps       # check status
+docker compose logs -f  # watch logs
+docker compose restart  # restart
+docker compose down     # stop
+```
+
+The `.env` file is written by the deploy workflow, so `docker compose` commands work without extra setup.
 
 ## Bot Commands
 

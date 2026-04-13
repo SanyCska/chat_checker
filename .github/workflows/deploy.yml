@@ -55,29 +55,42 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            set -e
             APP_DIR=~/chat-checker
             REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
             BRANCH="${{ github.ref_name }}"
 
+            # Clone or update repo
             if [ ! -d "$APP_DIR/.git" ]; then
               rm -rf "$APP_DIR"
               git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
             fi
-
             cd "$APP_DIR"
             git fetch origin "$BRANCH"
             git checkout "$BRANCH"
             git reset --hard "origin/$BRANCH"
 
-            export GITHUB_REPOSITORY=${{ github.repository }}
-            export API_ID=${{ secrets.API_ID }}
-            export API_HASH=${{ secrets.API_HASH }}
-            export BOT_TOKEN=${{ secrets.BOT_TOKEN }}
-            export NOTIFY_USER_ID=${{ secrets.NOTIFY_USER_ID }}
-            export PHONE_NUMBER=${{ secrets.PHONE_NUMBER }}
-            export CHAT_ID=${{ secrets.CHAT_ID }}
-            export TOPIC_ID=${{ secrets.TOPIC_ID }}
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Create sessions dir (host-mounted volume)
+            mkdir -p "$APP_DIR/sessions"
+
+            # Write .env so Compose (and container) always have the config
+            cat > "$APP_DIR/.env" <<'ENVEOF'
+            GITHUB_REPOSITORY=${{ github.repository }}
+            API_ID=${{ secrets.API_ID }}
+            API_HASH=${{ secrets.API_HASH }}
+            BOT_TOKEN=${{ secrets.BOT_TOKEN }}
+            NOTIFY_USER_ID=${{ secrets.NOTIFY_USER_ID }}
+            PHONE_NUMBER=${{ secrets.PHONE_NUMBER }}
+            CHAT_ID=${{ secrets.CHAT_ID }}
+            TOPIC_ID=${{ secrets.TOPIC_ID }}
+            ENVEOF
+            chmod 600 "$APP_DIR/.env"
+
+            # Pull image and (re)start
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             docker compose pull
             docker compose up -d --force-recreate
             docker image prune -f
+
+            echo "Deploy complete. Container status:"
+            docker compose ps
