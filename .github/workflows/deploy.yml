@@ -88,16 +88,16 @@ jobs:
             mkdir -p "$APP_DIR/sessions"
 
             # Write .env so Compose (and container) always have the config
-            cat > "$APP_DIR/.env" <<EOF
-GITHUB_REPOSITORY=${IMAGE_NAME}
-API_ID=${API_ID}
-API_HASH=${API_HASH}
-BOT_TOKEN=${BOT_TOKEN}
-NOTIFY_USER_ID=${NOTIFY_USER_ID}
-PHONE_NUMBER=${PHONE_NUMBER}
-CHAT_ID=${CHAT_ID}
-TOPIC_ID=${TOPIC_ID}
-EOF
+            {
+              echo "GITHUB_REPOSITORY=${IMAGE_NAME}"
+              echo "API_ID=${API_ID}"
+              echo "API_HASH=${API_HASH}"
+              echo "BOT_TOKEN=${BOT_TOKEN}"
+              echo "NOTIFY_USER_ID=${NOTIFY_USER_ID}"
+              echo "PHONE_NUMBER=${PHONE_NUMBER}"
+              echo "CHAT_ID=${CHAT_ID}"
+              echo "TOPIC_ID=${TOPIC_ID}"
+            } > "$APP_DIR/.env"
             chmod 600 "$APP_DIR/.env"
 
             # Pull image and (re)start
